@@ -86,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Name of the routine in the navigation bar, replacing the title of the page
     - Automatic start of an activity that prescribes repetitions, which no longer implies a countdown
     - Label of the start of an activity, which reads "Start"
+    - Marker of the start of a rest, shown for a rest that waits for a tap instead of one that moves on
 - Exercises page:
     - Legend of the primary and secondary muscles in the add, filter and properties dialogs, shown as the order in which tapping a muscle changes its level in a tooltip of a help icon next to the worked and the stretched muscles
     - Labels of the muscles and properties in the add, filter and properties dialogs, styled like the labels of other input fields

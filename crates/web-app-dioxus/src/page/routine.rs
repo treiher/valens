@@ -410,10 +410,12 @@ fn view_routine_part(
                                             }
                                         }
                                     }
-                                    if *automatic {
+                                    // Automatic is the default of a rest, so only a manual rest is marked.
+                                    if !*automatic {
                                         span {
                                             class: "icon-text",
-                                            {automatic_icon()}
+                                            "data-testid": "rest-manual",
+                                            Icon { name: "hand-pointer" }
                                         }
                                     }
                                 }
@@ -2336,6 +2338,20 @@ mod tests {
         });
 
         assert_eq!(contains(&html, "set-countdown"), expected);
+    }
+
+    #[rstest::rstest]
+    #[case::manual(false, true)]
+    #[case::automatic(true, false)]
+    fn test_only_a_manual_rest_is_marked(#[case] automatic: bool, #[case] expected: bool) {
+        let html = render_routine(1, move || {
+            with_routine().with_routines(vec![domain::Routine {
+                sections: vec![section(vec![with_automatic(rest(&[60]), automatic)])],
+                ..routine()
+            }])
+        });
+
+        assert_eq!(contains(&html, "rest-manual"), expected);
     }
 
     #[test]

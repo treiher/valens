@@ -484,8 +484,9 @@ fn view_list(
         .read()
         .catalog()
         .values()
-        .map(|e| {
+        .map(|(e, alias)| {
             let e = (*e).clone();
+            let alias = *alias;
             let name = e.name.to_string();
             vec![
                 rsx! {
@@ -495,6 +496,7 @@ fn view_list(
                         onclick: move |event| on_catalog_click((event, name.clone())),
                         "{e.name}"
                     }
+                    {view_matched_alias(alias)}
                 },
                 rsx! {
                     if !existing_names.contains(&e.name) {
@@ -1657,8 +1659,8 @@ fn view_catalog_picker(
         ..domain::ExerciseFilter::default()
     }
     .catalog()
-    .into_keys()
-    .map(|catalog_name| {
+    .into_iter()
+    .map(|(catalog_name, (_, alias))| {
         vec![rsx! {
             span {
                 class: "has-text-link is-clickable",
@@ -1666,6 +1668,7 @@ fn view_catalog_picker(
                 onclick: move |_| choose(exercise, catalog_name),
                 "{catalog_name}"
             }
+            {view_matched_alias(alias)}
         }]
     })
     .collect::<Vec<_>>();
@@ -1688,6 +1691,19 @@ fn view_catalog_picker(
                 }
             }
             Table { body: items }
+        }
+    }
+}
+
+/// Show the alias a catalog exercise was found by after its name.
+fn view_matched_alias(alias: Option<&'static str>) -> Element {
+    rsx! {
+        if let Some(alias) = alias {
+            span {
+                class: "has-text-weak ml-2",
+                "data-testid": "catalog-item-alias",
+                "{alias}"
+            }
         }
     }
 }
@@ -2216,6 +2232,60 @@ mod tests {
             1
         );
         assert!(!text_of(&html, "table").is_empty());
+    }
+
+    #[test]
+    fn test_a_catalog_exercise_found_by_an_alias_shows_the_alias() {
+        let filter = ExerciseFilter::from(domain::ExerciseFilter {
+            name: "overhead".to_string(),
+            ..domain::ExerciseFilter::default()
+        })
+        .to_base64();
+        let html = render_exercises(filter, TestCache::default);
+
+        assert!(all_text_of(&html, "catalog-item").contains(&"Barbell Shoulder Press".to_string()));
+        assert!(
+            all_text_of(&html, "catalog-item-alias")
+                .contains(&"Barbell Overhead Press".to_string())
+        );
+    }
+
+    #[test]
+    fn test_a_catalog_exercise_found_by_its_name_shows_no_alias() {
+        let filter = ExerciseFilter::from(domain::ExerciseFilter {
+            name: "shoulder press".to_string(),
+            ..domain::ExerciseFilter::default()
+        })
+        .to_base64();
+        let html = render_exercises(filter, TestCache::default);
+
+        assert!(all_text_of(&html, "catalog-item").contains(&"Barbell Shoulder Press".to_string()));
+        assert!(!contains(&html, "catalog-item-alias"));
+    }
+
+    #[component]
+    fn ShownCatalogPicker(search_term: &'static str) -> Element {
+        let picker = use_signal(|| {
+            Some(CatalogPicker {
+                exercise: 1.into(),
+                search_term: search_term.to_string(),
+            })
+        });
+        view_catalog_picker(picker, |_, _| {})
+    }
+
+    #[test]
+    fn test_the_catalog_picker_shows_the_alias_an_exercise_was_found_by() {
+        let html = render(|| rsx! { ShownCatalogPicker { search_term: "Barbell RDL" } });
+
+        assert_eq!(
+            all_text_of(&html, "catalog-picker-item"),
+            vec!["Barbell Romanian Deadlift"]
+        );
+        assert_eq!(
+            all_text_of(&html, "catalog-item-alias"),
+            vec!["Barbell RDL"]
+        );
     }
 
     #[test]

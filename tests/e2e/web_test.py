@@ -4157,6 +4157,24 @@ def test_exercises_add_from_catalog_with_filtered_out_exercise(page: Page) -> No
     p.expect_no_catalog_exercise_creation()
 
 
+def test_exercises_search_catalog_by_alias(page: Page) -> None:
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+    p.search("Dumbbell RDL")
+
+    p.expect_catalog_exercise("Dumbbell Romanian Deadlift")
+    p.expect_catalog_exercise_aliases("Dumbbell RDL")
+
+
+def test_catalog_other_names(page: Page) -> None:
+    login(page)
+    catalog_page = CatalogPage(page, "Barbell Bench Press")
+    catalog_page.goto()
+
+    catalog_page.expect_other_names("Bench Press")
+
+
 def test_exercises_update_from_catalog(page: Page) -> None:
     name = "Dip"
     variation = "Dip (weighted)"

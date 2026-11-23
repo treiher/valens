@@ -577,7 +577,7 @@ pub fn view_exercise_properties(
     }
 }
 
-fn view_block(
+pub fn view_block(
     caption: &str,
     test_id: &str,
     on_edit: Option<Rc<dyn Fn(MouseEvent)>>,

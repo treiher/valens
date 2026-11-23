@@ -71,6 +71,9 @@ class ExercisesPage(BasePage):
             )
         ).to_be_visible()
 
+    def expect_catalog_exercise_aliases(self, *aliases: str) -> None:
+        expect(self.page.get_by_test_id("catalog-item-alias")).to_have_text(list(aliases))
+
     def expect_no_catalog_exercise_creation(self) -> None:
         expect(self.page.get_by_test_id("add-catalog-exercise")).to_have_count(0)
 

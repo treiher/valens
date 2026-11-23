@@ -8,17 +8,35 @@ use crate::{page, ui::element::ErrorPage};
 pub fn Catalog(name: String) -> Element {
     if let Ok(name) = domain::Name::new(&name) {
         if let Some(exercise) = domain::catalog::exercise(&name) {
-            page::exercise::view_exercise_properties(
-                Some(exercise.force),
-                Some(exercise.mechanic),
-                Some(exercise.laterality),
-                Some(exercise.assistance),
-                exercise.equipment,
-                exercise.muscles,
-                exercise.stretch,
-                Some(exercise.category),
-                None,
-            )
+            rsx! {
+                if !exercise.aliases.is_empty() {
+                    {page::exercise::view_block(
+                        "Other names",
+                        "catalog-other-names",
+                        None,
+                        rsx! {
+                            p {
+                                class: "has-text-centered m-2",
+                                for (i, alias) in exercise.aliases.iter().enumerate() {
+                                    if i > 0 { ", " }
+                                    span { "data-testid": "other-name", "{alias}" }
+                                }
+                            }
+                        },
+                    )}
+                }
+                {page::exercise::view_exercise_properties(
+                    Some(exercise.force),
+                    Some(exercise.mechanic),
+                    Some(exercise.laterality),
+                    Some(exercise.assistance),
+                    exercise.equipment,
+                    exercise.muscles,
+                    exercise.stretch,
+                    Some(exercise.category),
+                    None,
+                )}
+            }
         } else {
             rsx! { ErrorPage { message: "Exercise not found" } }
         }
@@ -82,6 +100,29 @@ mod tests {
             all_text_of(&html, "stretch-tag"),
             vec!["Hip Flexors", "Quads"]
         );
+    }
+
+    #[test]
+    fn test_the_other_names_of_a_catalog_exercise_are_shown_first() {
+        let html = render(|| {
+            rsx! { Catalog { name: "Barbell Shoulder Press".to_string() } }
+        });
+
+        assert_eq!(all_text_of(&html, "caption")[0], "Other names");
+        assert_eq!(
+            all_text_of(&html, "other-name"),
+            vec!["Barbell Overhead Press", "Military Press", "Barbell OHP"]
+        );
+    }
+
+    #[test]
+    fn test_the_other_names_are_left_out_for_an_exercise_without_aliases() {
+        let html = render(|| {
+            rsx! { Catalog { name: "Couch Stretch".to_string() } }
+        });
+
+        assert!(!all_text_of(&html, "caption").contains(&"Other names".to_string()));
+        assert!(all_text_of(&html, "other-name").is_empty());
     }
 
     #[test]

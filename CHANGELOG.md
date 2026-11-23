@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Stretches and mobility drills of the catalog
     - Front, overhead and Zercher squats, close-grip bench press, sumo and trap bar deadlifts, barbell and one-arm dumbbell rows, triceps pushdowns, front raises, upright rows, reverse lunge, archer, diamond and pike push ups, chin up, straight-arm pulldown, sit up, reverse and bicycle crunches, hollow body hold, L-sit, Copenhagen plank, Pallof presses, wall sit and farmer's walks of the catalog
     - Updating of custom exercises from catalog exercises known under another name, such as "bench press", spelled with hyphens, such as "pull-up", in the plural, such as "push ups", or without an apostrophe, such as "farmers walk", which the search also finds
-    - Finding of catalog exercises by another name, such as the overhead press
+    - Finding of catalog exercises by another name, such as "overhead press", shown next to the name
     - Choosing of the catalog exercise a custom exercise is updated from, also for exercises whose name matches no catalog exercise
     - Updating of an exercise from the catalog through its options
 - Exercise page:
@@ -62,7 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Changing of the properties and the muscles of the exercise by tapping them
     - Routines containing the exercise on a tab of their own, the archived ones listed separately
     - Personal records of the exercise, all-time and of the last 6 months, with a marker on the record sets of the set history
-- Catalog exercise page: Stretched muscles of the exercise, shown in a row of their own
+- Catalog exercise page:
+    - Stretched muscles of the exercise, shown in a row of their own
+    - Other names of the exercise
 
 ### Changed
 

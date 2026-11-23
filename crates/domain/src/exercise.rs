@@ -1391,31 +1391,46 @@ impl ExerciseFilter {
             .collect()
     }
 
+    /// The catalog exercises matching the filter, each with the alias found by the search term if
+    /// the search term is not empty and the name does not contain it.
+    ///
+    /// Of several aliases containing the search term, the first is returned.
     #[must_use]
-    pub fn catalog(&self) -> BTreeMap<&'static Name, &'static catalog::Exercise> {
+    pub fn catalog(
+        &self,
+    ) -> BTreeMap<&'static Name, (&'static catalog::Exercise, Option<&'static str>)> {
         let search_term = normalized_name(self.name.trim());
-        CATALOG_NAMES
+        let mut result = BTreeMap::new();
+        for candidate in CATALOG_NAMES
             .iter()
             .filter(|candidate| candidate.name.contains(&search_term))
-            .map(|candidate| candidate.entry.1)
-            .filter(|e| {
-                self.matches_muscles(
-                    |muscle, level| contains_muscle(e.muscles, muscle, level),
-                    |muscle, level| contains_muscle(e.stretch, muscle, level),
-                    e.muscles.is_empty() && e.stretch.is_empty(),
-                ) && (self.force.is_empty() || self.force.contains(&Some(e.force)))
-                    && (self.mechanic.is_empty() || self.mechanic.contains(&Some(e.mechanic)))
-                    && (self.laterality.is_empty() || self.laterality.contains(&Some(e.laterality)))
-                    && (self.assistance.is_empty() || self.assistance.contains(&Some(e.assistance)))
-                    && (self.equipment.is_empty()
-                        || self.equipment.iter().any(|equipment| match equipment {
-                            Some(equipment) => e.equipment.contains(equipment),
-                            None => e.equipment.is_empty(),
-                        }))
-                    && (self.category.is_empty() || self.category.contains(&Some(e.category)))
-            })
-            .map(|e| (&e.name, e))
-            .collect()
+        {
+            let (name, exercise) = candidate.entry;
+            if self.matches_catalog_exercise(exercise) {
+                result.entry(name).or_insert((
+                    exercise,
+                    (candidate.is_alias && !search_term.is_empty()).then_some(candidate.spelling),
+                ));
+            }
+        }
+        result
+    }
+
+    fn matches_catalog_exercise(&self, e: &catalog::Exercise) -> bool {
+        self.matches_muscles(
+            |muscle, level| contains_muscle(e.muscles, muscle, level),
+            |muscle, level| contains_muscle(e.stretch, muscle, level),
+            e.muscles.is_empty() && e.stretch.is_empty(),
+        ) && (self.force.is_empty() || self.force.contains(&Some(e.force)))
+            && (self.mechanic.is_empty() || self.mechanic.contains(&Some(e.mechanic)))
+            && (self.laterality.is_empty() || self.laterality.contains(&Some(e.laterality)))
+            && (self.assistance.is_empty() || self.assistance.contains(&Some(e.assistance)))
+            && (self.equipment.is_empty()
+                || self.equipment.iter().any(|equipment| match equipment {
+                    Some(equipment) => e.equipment.contains(equipment),
+                    None => e.equipment.is_empty(),
+                }))
+            && (self.category.is_empty() || self.category.contains(&Some(e.category)))
     }
 
     /// The property values an exercise needs to have to match the filter.
@@ -2797,6 +2812,36 @@ mod tests {
         assert_eq!(
             filter.catalog().first_entry().map(|e| (*e.key()).clone()),
             expected_first_name.map(|name| Name::new(name).unwrap()),
+        );
+    }
+
+    #[rstest]
+    #[case::empty_search_term("", "Barbell Shoulder Press", None)]
+    #[case::name_containing_search_term("shoulder", "Barbell Shoulder Press", None)]
+    #[case::alias_containing_search_term(
+        "overhead",
+        "Barbell Shoulder Press",
+        Some("Barbell Overhead Press")
+    )]
+    #[case::second_alias("military", "Barbell Shoulder Press", Some("Military Press"))]
+    #[case::first_of_several_aliases(
+        "incline dumbbell",
+        "Dumbbell Incline Bench Press",
+        Some("Incline Dumbbell Press")
+    )]
+    fn test_exercise_catalog_matched_alias(
+        #[case] name: &str,
+        #[case] exercise_name: &str,
+        #[case] expected: Option<&str>,
+    ) {
+        let filter = ExerciseFilter {
+            name: name.into(),
+            ..ExerciseFilter::default()
+        };
+
+        assert_eq!(
+            filter.catalog()[&Name::new(exercise_name).unwrap()].1,
+            expected
         );
     }
 

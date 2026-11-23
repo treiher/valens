@@ -10,7 +10,7 @@ use crate::{
     Rotation, RotationID, Rounds, Routine, RoutineID, RoutinePart, Schedule, ScheduleError,
     ScheduleSlot, SetPacing, Sides, Tempo, Time, Unreachable, UpdateError, ValidationError,
     Weekday, Weight, catalog,
-    exercise::{catalog_exercise_by_name, normalized_name, singular_name},
+    exercise::{catalog_exercise_by_name, equal_ignoring_plural, normalized_name},
     training::values_to_string,
     validate_routine_name,
 };
@@ -294,7 +294,7 @@ impl ParsedText {
             if resolve_exercise(name, exercises).is_none()
                 && !result
                     .iter()
-                    .any(|n| singular_name(n.as_ref()) == singular_name(name.as_ref()))
+                    .any(|n| equal_ignoring_plural(n.as_ref(), name.as_ref()))
             {
                 result.push(name.clone());
             }
@@ -1540,19 +1540,20 @@ fn starts_with_weekday(line: &str) -> bool {
 
 /// Finds the exercise of `exercises` a name refers to.
 ///
-/// An exact spelling is preferred over a match ignoring case, hyphens and a plural on the last
-/// word, which must be unique. Without such a match, the name is mapped to a catalog exercise by
-/// an exact name or alias, and an exercise is found if it is the only one mapped to the same
-/// catalog exercise.
+/// An exact spelling is preferred over a match ignoring case, apostrophes and hyphens, which is
+/// preferred over one also ignoring a plural on the last word, each of which must be unique.
+/// Without such a match, the name is mapped to a catalog exercise by a name or alias, and an
+/// exercise is found if it is the only one mapped to the same catalog exercise.
 #[must_use]
 pub fn resolve_exercise(name: &Name, exercises: &[Exercise]) -> Option<ExerciseID> {
     if let Some(exercise) = exercises.iter().find(|e| e.name == *name) {
         return Some(exercise.id);
     }
-    for key in [normalized_name, singular_name] {
+    let equal_normalized = |a: &str, b: &str| normalized_name(a) == normalized_name(b);
+    for equal in [equal_normalized, equal_ignoring_plural] {
         let matching = exercises
             .iter()
-            .filter(|e| key(e.name.as_ref()) == key(name.as_ref()))
+            .filter(|e| equal(e.name.as_ref(), name.as_ref()))
             .collect::<Vec<_>>();
         match matching[..] {
             [exercise] => return Some(exercise.id),
@@ -1651,7 +1652,7 @@ impl ImportChoices {
         let choice = self
             .exercises
             .iter()
-            .find(|(n, _)| singular_name(n.as_ref()) == singular_name(name.as_ref()))
+            .find(|(n, _)| equal_ignoring_plural(n.as_ref(), name.as_ref()))
             .map(|(_, choice)| choice.clone())
             .or_else(|| resolve_exercise(name, exercises).map(ExerciseChoice::Existing))
             .or_else(|| {
@@ -2911,6 +2912,8 @@ mod tests {
     #[case::exact(&["Dip"], "Dip", Some(1))]
     #[case::case_and_hyphen(&["Pull-Up"], "pull up", Some(1))]
     #[case::plural(&["Dip"], "Dips", Some(1))]
+    #[case::plural_in_es(&["Crunch"], "Crunches", Some(1))]
+    #[case::apostrophe(&["Farmer's Walk"], "Farmers Walk", Some(1))]
     #[case::plural_of_user_exercise(&["Band Pull-Aparts"], "Band Pull Apart", Some(1))]
     #[case::catalog_alias(&["Barbell Bench Press"], "Bench Press", Some(1))]
     #[case::exact_spelling_among_several(&["Dip", "dip"], "dip", Some(2))]

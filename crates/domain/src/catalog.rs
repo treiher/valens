@@ -114,6 +114,78 @@ pub fn exercise(name: &Name) -> Option<&'static Exercise> {
     EXERCISES.get(name)
 }
 
+/// The words of a normalized name, each with the equipment it names, if any.
+///
+/// A name is split into words at every character that is neither a letter nor a digit. A phrase of
+/// two words naming equipment, such as "trap bar", counts as one word.
+pub(crate) fn equipment_words(normalized_name: &str) -> Vec<Option<Equipment>> {
+    let words = normalized_name
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .collect::<Vec<_>>();
+    let equipment = |phrase: &str| {
+        EQUIPMENT_WORDS
+            .iter()
+            .find(|(word, _)| *word == phrase)
+            .map(|(_, equipment)| *equipment)
+    };
+    let mut result = vec![];
+    let mut i = 0;
+    while i < words.len() {
+        if let Some(e) = words
+            .get(i + 1)
+            .and_then(|next| equipment(&format!("{} {next}", words[i])))
+        {
+            result.push(Some(e));
+            i += 2;
+        } else {
+            result.push(equipment(words[i]));
+            i += 1;
+        }
+    }
+    result
+}
+
+/// The words naming equipment in exercise names.
+///
+/// The parallel bars and the pull-up bar are left out, as names never name them. They are the
+/// apparatus of the bodyweight forms. A bare "ball" is left out, as it also names the medicine ball,
+/// the slam ball and the Bosu ball.
+const EQUIPMENT_WORDS: [(&str, Equipment); 32] = [
+    ("barbell", Equipment::Barbell),
+    ("barbells", Equipment::Barbell),
+    ("bb", Equipment::Barbell),
+    ("box", Equipment::Box),
+    ("boxes", Equipment::Box),
+    ("cable", Equipment::Cable),
+    ("cables", Equipment::Cable),
+    ("dumbbell", Equipment::Dumbbell),
+    ("dumbbells", Equipment::Dumbbell),
+    ("db", Equipment::Dumbbell),
+    ("exercise ball", Equipment::ExerciseBall),
+    ("exercise balls", Equipment::ExerciseBall),
+    ("ring", Equipment::GymnasticRings),
+    ("rings", Equipment::GymnasticRings),
+    ("gymnastic rings", Equipment::GymnasticRings),
+    ("kettlebell", Equipment::Kettlebell),
+    ("kettlebells", Equipment::Kettlebell),
+    ("kb", Equipment::Kettlebell),
+    ("machine", Equipment::Machine),
+    ("machines", Equipment::Machine),
+    ("smith machine", Equipment::Machine),
+    ("smith machines", Equipment::Machine),
+    ("band", Equipment::ResistanceBand),
+    ("bands", Equipment::ResistanceBand),
+    ("resistance band", Equipment::ResistanceBand),
+    ("resistance bands", Equipment::ResistanceBand),
+    ("slider", Equipment::Sliders),
+    ("sliders", Equipment::Sliders),
+    ("trap bar", Equipment::TrapBar),
+    ("trap bars", Equipment::TrapBar),
+    ("hex bar", Equipment::TrapBar),
+    ("hex bars", Equipment::TrapBar),
+];
+
 const HINGE_MUSCLES: &[(MuscleID, Stimulus)] = &[
     (MuscleID::Glutes, Stimulus::PRIMARY),
     (MuscleID::ErectorSpinae, Stimulus::PRIMARY),

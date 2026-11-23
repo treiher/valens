@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Hip flexors and hip rotators
     - Stretches and mobility drills of the catalog
     - Front, overhead and Zercher squats, close-grip bench press, sumo and trap bar deadlifts, barbell and one-arm dumbbell rows, triceps pushdowns, front raises, upright rows, reverse lunge, archer, diamond and pike push ups, chin up, straight-arm pulldown, sit up, reverse and bicycle crunches, hollow body hold, L-sit, Copenhagen plank, Pallof presses, wall sit and farmer's walks of the catalog
-    - Updating of custom exercises from catalog exercises known under another name, such as the bench press, or spelled with hyphens, such as the pull-up
+    - Updating of custom exercises from catalog exercises known under another name, such as "bench press", spelled with hyphens, such as "pull-up", in the plural, such as "push ups", or without an apostrophe, such as "farmers walk", which the search also finds
     - Finding of catalog exercises by another name, such as the overhead press
     - Choosing of the catalog exercise a custom exercise is updated from, also for exercises whose name matches no catalog exercise
     - Updating of an exercise from the catalog through its options
@@ -140,6 +140,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Missing or wrong equipment of the hanging leg raise, the band-assisted dip, the step up and the inverted row in the catalog
     - Wrong force of the good mornings and the reverse Nordic curl and wrong mechanic of the lateral raises in the catalog
     - Wrong laterality of the dumbbell walking lunge and wrong muscles of the reverse plank, the Romanian and stiff-legged deadlifts, the lat pulldown, the hammer curls and the glute bridges in the catalog
+    - Catalog exercise with other equipment offered for updating a custom exercise whose name adds a common equipment name after a catalog name, such as "hip thrust machine", instead of the choice of the catalog exercise
 - Catalog exercise page:
     - Missing or wrong equipment of the hanging leg raise, the band-assisted dip, the step up and the inverted row
     - Wrong force of the good mornings and the reverse Nordic curl and wrong mechanic of the lateral raises

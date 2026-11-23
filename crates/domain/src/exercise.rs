@@ -274,10 +274,12 @@ fn merge_muscles(
 /// How the catalog exercise of an update was determined.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CatalogMatch {
+    /// The name, or a singular form of it, equals the name of the catalog exercise.
     Exact,
-    /// The name equals an alias of the catalog exercise.
+    /// The name, or a singular form of it, equals an alias of the catalog exercise.
     Alias,
-    /// The name starts with the name or an alias of the catalog exercise, followed by a space.
+    /// The name starts with the name or an alias of the catalog exercise, or with words of which a
+    /// singular form equals it, followed by a space.
     Prefix,
     /// The catalog exercise was chosen explicitly instead of matched by name.
     Chosen,
@@ -406,26 +408,43 @@ pub fn exercises_to_choose_for<'a>(
 
 /// Determine a search term for catalog exercises similar to an exercise of the given name.
 ///
-/// This is the longest catalog name or alias the name ends with, following a space, or otherwise
-/// the catalog name or alias the name matches, each spelled as in the catalog.
+/// This is the longest catalog name or alias a singular form of the name ends with, following a
+/// space, or otherwise the catalog name or alias the name matches regardless of equipment, each
+/// spelled as in the catalog.
 #[must_use]
 pub fn catalog_search_term(name: &Name) -> String {
     let name = normalized_name(name.as_ref());
+    let forms = singular_forms(&name);
     CATALOG_NAMES
         .iter()
         .filter(|candidate| {
-            name.strip_suffix(candidate.name.as_str())
-                .is_some_and(|rest| rest.ends_with(' '))
+            forms.iter().any(|form| {
+                form.strip_suffix(candidate.name.as_str())
+                    .is_some_and(|rest| rest.ends_with(' '))
+            })
         })
         .max_by_key(|candidate| candidate.name.len())
-        .or_else(|| best_match(&name, &CATALOG_NAMES).map(|(candidate, _)| candidate))
+        .or_else(|| best_match(&name, &CATALOG_NAMES, |_, _| true).map(|(candidate, _)| candidate))
         .map(|candidate| candidate.spelling.to_string())
         .unwrap_or_default()
 }
 
 /// Find the catalog exercise a name matches.
+///
+/// A prefix does not match if the rest of the name names equipment its catalog exercise lacks.
 fn match_catalog(name: &Name) -> Option<(&'static Name, &'static catalog::Exercise, CatalogMatch)> {
-    best_match(&normalized_name(name.as_ref()), &CATALOG_NAMES).map(|(candidate, catalog_match)| {
+    best_match(
+        &normalized_name(name.as_ref()),
+        &CATALOG_NAMES,
+        |candidate, rest| {
+            let (_, catalog_exercise) = candidate.entry;
+            catalog::equipment_words(rest)
+                .into_iter()
+                .flatten()
+                .all(|equipment| catalog_exercise.equipment.contains(&equipment))
+        },
+    )
+    .map(|(candidate, catalog_match)| {
         let (catalog_name, catalog_exercise) = candidate.entry;
         (catalog_name, catalog_exercise, catalog_match)
     })
@@ -433,46 +452,71 @@ fn match_catalog(name: &Name) -> Option<(&'static Name, &'static catalog::Exerci
 
 /// Find the best match of a normalized name among candidates of normalized names or aliases.
 ///
-/// An exact name or alias is preferred over the longest name or alias the name starts with,
-/// followed by a space.
+/// An exact name or alias is preferred over one equal to a singular form of the name, which is
+/// preferred over the longest name or alias the name starts with, followed by a space. A prefix
+/// also matches if it equals a singular form of the words of the name it covers. A prefix only
+/// matches if the candidate and the rest of the name pass `accept_prefix`.
 fn best_match<'a, T>(
     name: &str,
     candidates: &'a [CatalogCandidate<T>],
+    accept_prefix: impl Fn(&CatalogCandidate<T>, &str) -> bool,
 ) -> Option<(&'a CatalogCandidate<T>, CatalogMatch)> {
+    let forms = singular_forms(name);
+    let prefixes = name
+        .match_indices(' ')
+        .map(|(i, _)| (singular_forms(&name[..i]), &name[i..]))
+        .collect::<Vec<_>>();
+    let mut singular_match: Option<&CatalogCandidate<T>> = None;
     let mut prefix_match: Option<&CatalogCandidate<T>> = None;
 
     for candidate in candidates {
         if name == candidate.name {
-            return Some((
-                candidate,
-                if candidate.is_alias {
-                    CatalogMatch::Alias
-                } else {
-                    CatalogMatch::Exact
-                },
-            ));
+            return Some((candidate, candidate.name_match()));
         }
 
-        if name
-            .strip_prefix(candidate.name.as_str())
-            .is_some_and(|rest| rest.starts_with(' '))
-            && prefix_match.is_none_or(|best| best.name.len() < candidate.name.len())
+        if singular_match.is_none() && forms.contains(&candidate.name) {
+            singular_match = Some(candidate);
+        }
+
+        if prefix_match.is_none_or(|best| best.name.len() < candidate.name.len())
+            && prefixes.iter().any(|(prefix_forms, rest)| {
+                prefix_forms.contains(&candidate.name) && accept_prefix(candidate, rest)
+            })
         {
             prefix_match = Some(candidate);
         }
     }
 
-    prefix_match.map(|candidate| (candidate, CatalogMatch::Prefix))
+    singular_match
+        .map(|candidate| (candidate, candidate.name_match()))
+        .or_else(|| prefix_match.map(|candidate| (candidate, CatalogMatch::Prefix)))
 }
 
 /// A name or alias of a catalog exercise.
 struct CatalogCandidate<T> {
     name: String,
-    /// The name as normalized by [`singular_name`].
-    singular: String,
     spelling: &'static str,
     is_alias: bool,
     entry: T,
+}
+
+impl<T> CatalogCandidate<T> {
+    fn new(spelling: &'static str, is_alias: bool, entry: T) -> Self {
+        CatalogCandidate {
+            name: normalized_name(spelling),
+            spelling,
+            is_alias,
+            entry,
+        }
+    }
+
+    fn name_match(&self) -> CatalogMatch {
+        if self.is_alias {
+            CatalogMatch::Alias
+        } else {
+            CatalogMatch::Exact
+        }
+    }
 }
 
 type CatalogEntry = (&'static Name, &'static catalog::Exercise);
@@ -483,55 +527,65 @@ static CATALOG_NAMES: LazyLock<Vec<CatalogCandidate<CatalogEntry>>> = LazyLock::
     exercises
         .iter()
         .flat_map(|(name, exercise)| {
-            std::iter::once(CatalogCandidate {
-                name: normalized_name(name.as_ref()),
-                singular: singular_name(name.as_ref()),
-                spelling: name.as_ref().as_str(),
-                is_alias: false,
-                entry: (name, exercise),
-            })
-            .chain(exercise.aliases.iter().map(move |alias| CatalogCandidate {
-                name: normalized_name(alias),
-                singular: singular_name(alias),
-                spelling: alias,
-                is_alias: true,
-                entry: (name, exercise),
-            }))
+            std::iter::once(CatalogCandidate::new(
+                name.as_ref().as_str(),
+                false,
+                (name, exercise),
+            ))
+            .chain(
+                exercise
+                    .aliases
+                    .iter()
+                    .map(move |alias| CatalogCandidate::new(alias, true, (name, exercise))),
+            )
         })
         .collect()
 });
 
-/// Normalize a name for comparison, ignoring case and treating a hyphen like a space.
+/// Normalize a name for comparison, ignoring case and apostrophes and treating a hyphen like a
+/// space.
 pub(crate) fn normalized_name(name: &str) -> String {
-    name.to_lowercase().replace('-', " ")
+    name.to_lowercase()
+        .replace(['\'', '\u{2018}', '\u{2019}', '\u{02BC}'], "")
+        .replace('-', " ")
 }
 
-/// Normalize a name for comparison like [`normalized_name`], also ignoring a plural on the last
-/// word.
-pub(crate) fn singular_name(name: &str) -> String {
-    let normalized = normalized_name(name);
-    match normalized.strip_suffix('s') {
-        Some(singular) if !singular.is_empty() => singular.to_string(),
-        _ => normalized,
+/// Returns whether two names are equal ignoring a plural on the last word, which is the case if
+/// the singular forms of their normalized names share one.
+pub(crate) fn equal_ignoring_plural(a: &str, b: &str) -> bool {
+    let b = singular_forms(&normalized_name(b));
+    singular_forms(&normalized_name(a))
+        .iter()
+        .any(|form| b.contains(form))
+}
+
+/// The singular forms of a normalized name: the name itself and the names whose last word drops a
+/// final "s", drops a final "es" or turns a final "ies" into "y".
+///
+/// A form whose last word would be empty is left out.
+fn singular_forms(name: &str) -> Vec<String> {
+    let mut forms = vec![name.to_string()];
+    for (suffix, replacement) in [("s", ""), ("es", ""), ("ies", "y")] {
+        if let Some(stem) = name.strip_suffix(suffix)
+            && !(replacement.is_empty() && (stem.is_empty() || stem.ends_with(' ')))
+        {
+            forms.push(format!("{stem}{replacement}"));
+        }
     }
+    forms
 }
 
-/// Find the catalog exercise whose name or an alias equals a name, or otherwise equals it ignoring
-/// a plural on the last word, if this leaves a single catalog exercise.
+/// Find the catalog exercise whose name or an alias equals a singular form of a name.
+///
+/// At most one catalog exercise matches, as no two share a plural form.
 pub(crate) fn catalog_exercise_by_name(
     name: &str,
 ) -> Option<(&'static Name, &'static catalog::Exercise)> {
-    let normalized = normalized_name(name);
-    if let Some(candidate) = CATALOG_NAMES.iter().find(|c| c.name == normalized) {
-        return Some(candidate.entry);
-    }
-    let singular = singular_name(name);
-    let mut entries = CATALOG_NAMES
+    let forms = singular_forms(&normalized_name(name));
+    CATALOG_NAMES
         .iter()
-        .filter(|c| c.singular == singular)
-        .map(|c| c.entry);
-    let first = entries.next()?;
-    entries.all(|e| e.0 == first.0).then_some(first)
+        .find(|candidate| forms.contains(&candidate.name))
+        .map(|candidate| candidate.entry)
 }
 
 fn updated_exercise(
@@ -1863,6 +1917,25 @@ mod tests {
     #[case("Close Grip Bench Press", Some(("Barbell Close-Grip Bench Press", CatalogMatch::Alias)))]
     #[case("Front Squat", Some(("Barbell Front Squat", CatalogMatch::Alias)))]
     #[case("Pistol Squat", None)]
+    #[case("Push Ups", Some(("Push Up", CatalogMatch::Exact)))]
+    #[case("Squats", Some(("Squat", CatalogMatch::Exact)))]
+    #[case("Squat Jumps", Some(("Squat Jump", CatalogMatch::Exact)))]
+    #[case("Crunches", Some(("Crunch", CatalogMatch::Exact)))]
+    #[case("Leg Presses", Some(("Leg Press", CatalogMatch::Exact)))]
+    #[case("Dumbbell Flies", Some(("Dumbbell Fly", CatalogMatch::Exact)))]
+    #[case("Farmers Walk", Some(("Dumbbell Farmer's Walk", CatalogMatch::Alias)))]
+    #[case("Farmer\u{2018}s Walk", Some(("Dumbbell Farmer's Walk", CatalogMatch::Alias)))]
+    #[case("Farmer\u{2019}s Walk", Some(("Dumbbell Farmer's Walk", CatalogMatch::Alias)))]
+    #[case("Farmer\u{02BC}s Walk", Some(("Dumbbell Farmer's Walk", CatalogMatch::Alias)))]
+    #[case("Pull Ups (weighted)", Some(("Pull Up", CatalogMatch::Prefix)))]
+    #[case("Bench Presses (paused)", Some(("Barbell Bench Press", CatalogMatch::Prefix)))]
+    #[case("Hip Thrust Machine", None)]
+    #[case("Hip Thrust (Machine)", None)]
+    #[case("Squat Smith Machine", None)]
+    #[case("Lateral Raise Cables", None)]
+    #[case("Lateral Raise Dumbbell", Some(("Dumbbell Lateral Raise", CatalogMatch::Prefix)))]
+    #[case("Bench Press DB", None)]
+    #[case("Crunch (medicine ball)", Some(("Crunch", CatalogMatch::Prefix)))]
     fn test_catalog_update_match(
         #[case] name: &str,
         #[case] expected: Option<(&str, CatalogMatch)>,
@@ -1902,6 +1975,11 @@ mod tests {
     #[case::longest_prefix_of_name("a b e", Some(("A B", CatalogMatch::Prefix)))]
     #[case::longest_prefix_of_alias("c d e", Some(("X", CatalogMatch::Prefix)))]
     #[case::prefix_without_space("ab", None)]
+    #[case::singular_of_name("a bs", Some(("A B", CatalogMatch::Exact)))]
+    #[case::singular_of_alias("c ds", Some(("X", CatalogMatch::Alias)))]
+    #[case::plural_prefix("a bs e", Some(("A B", CatalogMatch::Prefix)))]
+    #[case::rejected_longer_prefix("a b z", Some(("A", CatalogMatch::Prefix)))]
+    #[case::rejected_plural_prefix("a bs z", Some(("A", CatalogMatch::Prefix)))]
     fn test_best_match(#[case] name: &str, #[case] expected: Option<(&str, CatalogMatch)>) {
         let candidates = [
             candidate("a", false, "A"),
@@ -1911,8 +1989,10 @@ mod tests {
         ];
 
         assert_eq!(
-            best_match(name, &candidates)
-                .map(|(candidate, catalog_match)| (candidate.entry, catalog_match)),
+            best_match(name, &candidates, |candidate, rest| {
+                candidate.entry != "A B" || !rest.contains('z')
+            })
+            .map(|(candidate, catalog_match)| (candidate.entry, catalog_match)),
             expected
         );
     }
@@ -1922,13 +2002,33 @@ mod tests {
         is_alias: bool,
         entry: &'static str,
     ) -> CatalogCandidate<&'static str> {
-        CatalogCandidate {
-            name: name.to_string(),
-            singular: singular_name(name),
-            spelling: name,
-            is_alias,
-            entry,
-        }
+        CatalogCandidate::new(name, is_alias, entry)
+    }
+
+    #[rstest]
+    #[case("dip", &["dip"])]
+    #[case("pull ups", &["pull ups", "pull up"])]
+    #[case("crunches", &["crunches", "crunche", "crunch"])]
+    #[case("dumbbell flies", &["dumbbell flies", "dumbbell flie", "dumbbell fli", "dumbbell fly"])]
+    #[case("s", &["s"])]
+    #[case("a s", &["a s"])]
+    #[case("a es", &["a es", "a e"])]
+    fn test_singular_forms(#[case] name: &str, #[case] expected: &[&str]) {
+        assert_eq!(singular_forms(name), expected);
+    }
+
+    #[rstest]
+    #[case("Squat", "squats", true)]
+    #[case("Leg Press", "Leg Presses", true)]
+    #[case("Fly", "Flies", true)]
+    #[case("Farmer's Walk", "Farmers Walk", true)]
+    #[case("Pull-Up", "pull ups", true)]
+    #[case("Squat", "Squat Jump", false)]
+    #[case("Fly", "Flyes", true)]
+    #[case("Fly", "Flye", false)]
+    fn test_equal_ignoring_plural(#[case] a: &str, #[case] b: &str, #[case] expected: bool) {
+        assert_eq!(equal_ignoring_plural(a, b), expected);
+        assert_eq!(equal_ignoring_plural(b, a), expected);
     }
 
     fn catalog_name(name: &str) -> &'static Name {
@@ -2285,6 +2385,7 @@ mod tests {
         };
         let chosen = exercise(5, "Chosen", vec![]);
         let matching = exercise(6, "Squat", vec![]);
+        let prefix_with_other_equipment = exercise(7, "Hip Thrust Machine", vec![]);
         let exercises = [
             without_muscles.clone(),
             complete,
@@ -2292,6 +2393,7 @@ mod tests {
             without_force.clone(),
             chosen,
             matching,
+            prefix_with_other_equipment.clone(),
         ];
 
         assert_eq!(
@@ -2299,7 +2401,11 @@ mod tests {
                 &exercises,
                 &BTreeMap::from([(5.into(), catalog_name("Dip"))])
             ),
-            vec![&without_force, &without_muscles]
+            vec![
+                &prefix_with_other_equipment,
+                &without_force,
+                &without_muscles
+            ]
         );
     }
 
@@ -2311,6 +2417,8 @@ mod tests {
     #[case::prefix("Dip (weighted)", "Dip")]
     #[case::hyphen("Weighted Chin-Up", "Chin Up")]
     #[case::none("Russian Twist", "")]
+    #[case::prefix_with_other_equipment("Hip Thrust Machine", "Hip Thrust")]
+    #[case::ending_in_plural("Weighted Pull Ups", "Pull Up")]
     fn test_catalog_search_term(#[case] exercise_name: &str, #[case] expected: &str) {
         assert_eq!(
             catalog_search_term(&Name::new(exercise_name).unwrap()),
@@ -2559,6 +2667,11 @@ mod tests {
         ExerciseFilter { name: "Pull-up".into(), ..ExerciseFilter::default() },
         &[exercise(0, "Pull Up", vec![]), exercise(1, "Push Up", vec![])],
         &[exercise(0, "Pull Up", vec![])]
+    )]
+    #[case::name_ignoring_apostrophes(
+        ExerciseFilter { name: "farmers".into(), ..ExerciseFilter::default() },
+        &[exercise(0, "Farmer's Walk", vec![]), exercise(1, "Farmer Carry", vec![])],
+        &[exercise(0, "Farmer's Walk", vec![])]
     )]
     #[case::no_muscles_excludes_stretched_only_exercise(
         ExerciseFilter { muscles: [None].into(), ..ExerciseFilter::default() },

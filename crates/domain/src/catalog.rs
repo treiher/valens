@@ -3099,7 +3099,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     use crate::exercise::normalized_name;
 
@@ -3164,39 +3164,129 @@ mod tests {
                 assert!(exercise.laterality == Laterality::Unilateral);
             }
 
-            assert!(match exercise.assistance {
-                Assistance::Assisted => name.as_ref().contains("Assisted"),
-                Assistance::Unassisted => !name.as_ref().contains("Assisted"),
-            });
-            if name.as_ref().contains("Barbell") {
-                assert!(exercise.equipment.contains(&Equipment::Barbell));
+            for name in
+                std::iter::once(name.as_ref().as_str()).chain(exercise.aliases.iter().copied())
+            {
+                assert!(
+                    match exercise.assistance {
+                        Assistance::Assisted => name.contains("Assisted"),
+                        Assistance::Unassisted => !name.contains("Assisted"),
+                    },
+                    "{name}"
+                );
             }
-            if name.as_ref().contains("Box") {
-                assert!(exercise.equipment.contains(&Equipment::Box));
+        }
+    }
+
+    #[test]
+    fn test_exercises_equipment_words() {
+        for exercise in EXERCISES.values() {
+            for name in std::iter::once(exercise.name.as_ref().as_str())
+                .chain(exercise.aliases.iter().copied())
+            {
+                for equipment in equipment_words(&normalized_name(name))
+                    .into_iter()
+                    .flatten()
+                {
+                    assert!(
+                        exercise.equipment.contains(&equipment),
+                        "\"{name}\" names {equipment:?}, which \"{}\" does not list",
+                        exercise.name
+                    );
+                }
             }
-            if name.as_ref().contains("Cable") {
-                assert!(exercise.equipment.contains(&Equipment::Cable));
+
+            let name = normalized_name(exercise.name.as_ref());
+            let name = ["band assisted ", "machine assisted "]
+                .iter()
+                .find_map(|prefix| name.strip_prefix(prefix))
+                .unwrap_or(&name);
+            assert!(
+                equipment_words(name)
+                    .into_iter()
+                    .skip_while(Option::is_some)
+                    .all(|equipment| equipment.is_none()),
+                "equipment words of \"{}\" not leading",
+                exercise.name
+            );
+        }
+    }
+
+    #[test]
+    fn test_exercises_distinct_plural_forms() {
+        let mut exercises_by_form = HashMap::<String, &Name>::new();
+
+        for exercise in EXERCISES.values() {
+            for name in std::iter::once(exercise.name.as_ref().as_str())
+                .chain(exercise.aliases.iter().copied())
+            {
+                for form in plural_forms(&normalized_name(name)) {
+                    let other = exercises_by_form
+                        .entry(form.clone())
+                        .or_insert(&exercise.name);
+                    assert_eq!(
+                        *other, &exercise.name,
+                        "plural form \"{form}\" of \"{name}\" shared with \"{other}\""
+                    );
+                }
             }
-            if name.as_ref().contains("Dumbbell") {
-                assert!(exercise.equipment.contains(&Equipment::Dumbbell));
-            }
-            if name.as_ref().contains("Ball") {
-                assert!(exercise.equipment.contains(&Equipment::ExerciseBall));
-            }
-            if name.as_ref().contains("Ring") {
-                assert!(exercise.equipment.contains(&Equipment::GymnasticRings));
-            }
-            if name.as_ref().contains("Kettlebell") {
-                assert!(exercise.equipment.contains(&Equipment::Kettlebell));
-            }
-            if name.as_ref().contains("Machine") {
-                assert!(exercise.equipment.contains(&Equipment::Machine));
-            }
-            if name.as_ref().contains("Band") {
-                assert!(exercise.equipment.contains(&Equipment::ResistanceBand));
-            }
-            if name.as_ref().contains("Slider") {
-                assert!(exercise.equipment.contains(&Equipment::Sliders));
+        }
+    }
+
+    fn plural_forms(name: &str) -> Vec<String> {
+        let mut forms = vec![name.to_string(), format!("{name}s"), format!("{name}es")];
+        if let Some(stem) = name.strip_suffix('y') {
+            forms.push(format!("{stem}ies"));
+        }
+        forms
+    }
+
+    #[test]
+    fn test_exercises_distinct_equipment() {
+        for exercise in EXERCISES.values() {
+            let distinct = exercise.equipment.iter().collect::<HashSet<_>>();
+            assert_eq!(
+                distinct.len(),
+                exercise.equipment.len(),
+                "duplicate equipment of \"{}\"",
+                exercise.name
+            );
+        }
+    }
+
+    #[test]
+    fn test_exercise_variants_no_redundant_override() {
+        for exercise in EXERCISE_VARIANTS {
+            for variant in exercise.variants {
+                let name = variant.name;
+                assert_ne!(variant.muscles, Some(exercise.muscles), "muscles of {name}");
+                assert_ne!(variant.stretch, Some(exercise.stretch), "stretch of {name}");
+                assert_ne!(variant.force, Some(exercise.force), "force of {name}");
+                assert_ne!(
+                    variant.mechanic,
+                    Some(exercise.mechanic),
+                    "mechanic of {name}"
+                );
+                assert_ne!(
+                    variant.laterality,
+                    Some(exercise.laterality),
+                    "laterality of {name}"
+                );
+                assert_ne!(
+                    variant.assistance,
+                    Some(exercise.assistance),
+                    "assistance of {name}"
+                );
+                assert_ne!(
+                    variant.equipment,
+                    Some(exercise.equipment),
+                    "equipment of {name}"
+                );
+                assert_ne!(
+                    variant.category,
+                    Some(exercise.category),
+                    "category of {name}"
+                );
             }
         }
     }

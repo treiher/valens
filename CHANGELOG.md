@@ -90,6 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exercises page:
     - Legend of the primary and secondary muscles in the add, filter and properties dialogs, shown as the order in which tapping a muscle changes its level in a tooltip of a help icon next to the worked and the stretched muscles
     - Labels of the muscles and properties in the add, filter and properties dialogs, styled like the labels of other input fields
+    - Name of the kettlebell single-leg deadlift in the catalog, which reads "Kettlebell Single-Leg Romanian Deadlift"
+    - Cable crossover in the catalog, merged into the cable fly as another name of it
 - Exercise page:
     - Legend of the primary and secondary muscles in the properties dialog, shown as the order in which tapping a muscle changes its level in a tooltip of a help icon next to the worked and the stretched muscles
     - Labels of the muscles and properties in the properties dialog, styled like the labels of other input fields
@@ -103,6 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Name of the exercise in the navigation bar, replacing the title of the page
     - Muscles and properties of the exercise, each group under a caption of its own
     - Name of the kneeling barbell ab rollout, which reads "Barbell Kneeling Ab Rollout"
+    - Name of the kettlebell single-leg deadlift, which reads "Kettlebell Single-Leg Romanian Deadlift"
+    - Cable crossover, merged into the cable fly as another name of it
 - Metronome dialog:
     - Captions of the metronome, the stopwatch and the timer, styled like the captions in the settings dialog
     - Tempo of the metronome, shown without a label
@@ -139,12 +143,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Error shown when opening the dialog for adding an exercise
     - Missing or wrong equipment of the hanging leg raise, the band-assisted dip, the step up and the inverted row in the catalog
     - Wrong force of the good mornings and the reverse Nordic curl and wrong mechanic of the lateral raises in the catalog
-    - Wrong laterality of the dumbbell walking lunge and wrong muscles of the reverse plank, the Romanian and stiff-legged deadlifts, the lat pulldown, the hammer curls and the glute bridges in the catalog
+    - Wrong laterality of the dumbbell walking lunge and wrong muscles of the reverse plank, the Romanian and stiff-legged deadlifts, the lat pulldown, the hammer curls, the glute bridges, the Cossack squat, the squats without a barbell and the box, lunge, squat and tuck jumps in the catalog
     - Catalog exercise with other equipment offered for updating a custom exercise whose name adds a common equipment name after a catalog name, such as "hip thrust machine", instead of the choice of the catalog exercise
 - Catalog exercise page:
     - Missing or wrong equipment of the hanging leg raise, the band-assisted dip, the step up and the inverted row
     - Wrong force of the good mornings and the reverse Nordic curl and wrong mechanic of the lateral raises
-    - Wrong laterality of the dumbbell walking lunge and wrong muscles of the reverse plank, the Romanian and stiff-legged deadlifts, the lat pulldown, the hammer curls and the glute bridges
+    - Wrong laterality of the dumbbell walking lunge and wrong muscles of the reverse plank, the Romanian and stiff-legged deadlifts, the lat pulldown, the hammer curls, the glute bridges, the Cossack squat, the squats without a barbell and the box, lunge, squat and tuck jumps
 
 ## [0.9.0] - 2026-09-26
 

@@ -203,7 +203,7 @@ EXERCISES = {
             (QUADS, PRIMARY),
             (GLUTES, PRIMARY),
             (ADDUCTORS, PRIMARY),
-            (ERECTOR_SPINAE, PRIMARY),
+            (ERECTOR_SPINAE, SECONDARY),
             (CALVES, SECONDARY),
         ),
         REST,

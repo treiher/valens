@@ -1908,7 +1908,9 @@ mod tests {
     #[case("Russian Twist", None)]
     #[case("Bench Press", Some(("Barbell Bench Press", CatalogMatch::Alias)))]
     #[case("bench press", Some(("Barbell Bench Press", CatalogMatch::Alias)))]
-    #[case("Overhead Press", Some(("Barbell Shoulder Press", CatalogMatch::Alias)))]
+    #[case("Overhead Press", None)]
+    #[case("Dumbbell OHP", Some(("Dumbbell Shoulder Press", CatalogMatch::Alias)))]
+    #[case("RDL", None)]
     #[case("Military Press", Some(("Barbell Shoulder Press", CatalogMatch::Alias)))]
     #[case("Bench Press (paused)", Some(("Barbell Bench Press", CatalogMatch::Prefix)))]
     #[case("Pull-Up", Some(("Pull Up", CatalogMatch::Exact)))]
@@ -1936,6 +1938,10 @@ mod tests {
     #[case("Lateral Raise Dumbbell", Some(("Dumbbell Lateral Raise", CatalogMatch::Prefix)))]
     #[case("Bench Press DB", None)]
     #[case("Crunch (medicine ball)", Some(("Crunch", CatalogMatch::Prefix)))]
+    #[case("Weighted Pancake", Some(("Dumbbell Pancake Good Morning", CatalogMatch::Alias)))]
+    #[case("Cable Crossover", Some(("Cable Fly", CatalogMatch::Alias)))]
+    #[case("Shrug", None)]
+    #[case("Skullcrusher", Some(("Barbell Skull Crusher", CatalogMatch::Alias)))]
     fn test_catalog_update_match(
         #[case] name: &str,
         #[case] expected: Option<(&str, CatalogMatch)>,

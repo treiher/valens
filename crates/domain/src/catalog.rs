@@ -186,6 +186,13 @@ const EQUIPMENT_WORDS: [(&str, Equipment); 32] = [
     ("hex bars", Equipment::TrapBar),
 ];
 
+const GOOD_MORNING_MUSCLES: &[(MuscleID, Stimulus)] = &[
+    (MuscleID::Glutes, Stimulus::PRIMARY),
+    (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+    (MuscleID::Hamstrings, Stimulus::PRIMARY),
+    (MuscleID::Adductors, Stimulus::SECONDARY),
+];
+
 const HINGE_MUSCLES: &[(MuscleID, Stimulus)] = &[
     (MuscleID::Glutes, Stimulus::PRIMARY),
     (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
@@ -199,7 +206,7 @@ const HINGE_MUSCLES: &[(MuscleID, Stimulus)] = &[
 // any modifiers. Names without equipment denote the bodyweight form on the usual apparatus, or the
 // form implied by an established name, such as the leg press or the goblet squat. Where the
 // equipment is commonly left out of the name, the short name is an alias.
-const EXERCISE_VARIANTS: [BaseExercise; 120] = [
+const EXERCISE_VARIANTS: [BaseExercise; 118] = [
     BaseExercise {
         name: "90-90 Hip Stretch",
         aliases: &["90/90 Hip Stretch"],
@@ -217,6 +224,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         category: Category::Flexibility,
         variants: &[ExerciseVariant {
             name: "90-90 Hip Switch",
+            aliases: &["90/90 Hip Switch"],
             muscles: Some(&[
                 (MuscleID::HipRotators, Stimulus::SECONDARY),
                 (MuscleID::HipFlexors, Stimulus::SECONDARY),
@@ -369,6 +377,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Dumbbell Incline Bench Press",
+                aliases: &["Incline Dumbbell Press", "Incline Dumbbell Bench Press"],
                 equipment: Some(&[Equipment::Dumbbell]),
                 ..ExerciseVariant::default()
             },
@@ -426,6 +435,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Dumbbell Curl",
+                aliases: &[],
                 equipment: Some(&[Equipment::Dumbbell]),
                 ..ExerciseVariant::default()
             },
@@ -489,26 +499,28 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Barbell Deficit Romanian Deadlift",
+                aliases: &["Barbell Deficit RDL"],
                 muscles: Some(HINGE_MUSCLES),
                 stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Barbell Deficit Stiff-Legged Deadlift",
+                aliases: &["Barbell Deficit Stiff-Leg Deadlift", "Barbell Deficit SLDL"],
                 muscles: Some(HINGE_MUSCLES),
                 stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Barbell Romanian Deadlift",
-                aliases: &["Romanian Deadlift", "RDL"],
+                aliases: &["Barbell RDL"],
                 muscles: Some(HINGE_MUSCLES),
                 stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Barbell Stiff-Legged Deadlift",
-                aliases: &["Stiff-Legged Deadlift", "Stiff-Leg Deadlift"],
+                aliases: &["Barbell Stiff-Leg Deadlift", "Barbell SLDL"],
                 muscles: Some(HINGE_MUSCLES),
                 stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
@@ -539,6 +551,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Dumbbell Deficit Romanian Deadlift",
+                aliases: &["Dumbbell Deficit RDL"],
                 equipment: Some(&[Equipment::Dumbbell]),
                 muscles: Some(HINGE_MUSCLES),
                 stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
@@ -546,6 +559,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Dumbbell Deficit Stiff-Legged Deadlift",
+                aliases: &[
+                    "Dumbbell Deficit Stiff-Leg Deadlift",
+                    "Dumbbell Deficit SLDL",
+                ],
                 equipment: Some(&[Equipment::Dumbbell]),
                 muscles: Some(HINGE_MUSCLES),
                 stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
@@ -553,6 +570,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Dumbbell Romanian Deadlift",
+                aliases: &["Dumbbell RDL"],
                 equipment: Some(&[Equipment::Dumbbell]),
                 muscles: Some(HINGE_MUSCLES),
                 stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
@@ -560,14 +578,20 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Dumbbell Stiff-Legged Deadlift",
+                aliases: &["Dumbbell Stiff-Leg Deadlift", "Dumbbell SLDL"],
                 equipment: Some(&[Equipment::Dumbbell]),
                 muscles: Some(HINGE_MUSCLES),
                 stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
-                name: "Kettlebell Single-Leg Deadlift",
-                aliases: &["Single-Leg Romanian Deadlift"],
+                name: "Kettlebell Single-Leg Romanian Deadlift",
+                aliases: &[
+                    "Single-Leg Romanian Deadlift",
+                    "Kettlebell Single-Leg Deadlift",
+                    "Kettlebell Single-Leg RDL",
+                    "Single-Leg RDL",
+                ],
                 laterality: Some(Laterality::Unilateral),
                 equipment: Some(&[Equipment::Kettlebell]),
                 muscles: Some(HINGE_MUSCLES),
@@ -620,12 +644,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
-        muscles: &[
-            (MuscleID::Glutes, Stimulus::PRIMARY),
-            (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
-            (MuscleID::Hamstrings, Stimulus::PRIMARY),
-            (MuscleID::Adductors, Stimulus::SECONDARY),
-        ],
+        muscles: GOOD_MORNING_MUSCLES,
         stretch: &[(MuscleID::Hamstrings, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
@@ -770,7 +789,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Dumbbell One-Arm Row",
-            aliases: &["One-Arm Dumbbell Row"],
+            aliases: &["One-Arm Dumbbell Row", "One-Arm Row"],
             laterality: Some(Laterality::Unilateral),
             equipment: Some(&[Equipment::Dumbbell]),
             muscles: Some(&[
@@ -785,7 +804,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
     },
     BaseExercise {
         name: "Barbell Shoulder Press",
-        aliases: &["Overhead Press", "Military Press", "OHP"],
+        aliases: &["Barbell Overhead Press", "Military Press", "Barbell OHP"],
         force: Force::Push,
         mechanic: Mechanic::Compound,
         laterality: Laterality::Bilateral,
@@ -811,6 +830,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Dumbbell Shoulder Press",
+                aliases: &["Dumbbell Overhead Press", "Dumbbell OHP"],
                 equipment: Some(&[Equipment::Dumbbell]),
                 ..ExerciseVariant::default()
             },
@@ -850,7 +870,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
     },
     BaseExercise {
         name: "Barbell Skull Crusher",
-        aliases: &["Skull Crusher", "Lying Triceps Extension"],
+        aliases: &["Skull Crusher", "Lying Triceps Extension", "Skullcrusher"],
         force: Force::Push,
         mechanic: Mechanic::Isolation,
         laterality: Laterality::Bilateral,
@@ -913,8 +933,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         muscles: &[
             (MuscleID::Quads, Stimulus::PRIMARY),
             (MuscleID::Glutes, Stimulus::PRIMARY),
-            (MuscleID::Adductors, Stimulus::PRIMARY),
-            (MuscleID::Calves, Stimulus::SECONDARY),
+            (MuscleID::Calves, Stimulus::PRIMARY),
+            (MuscleID::Adductors, Stimulus::SECONDARY),
         ],
         stretch: &[],
         category: Category::Plyometrics,
@@ -949,22 +969,6 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         muscles: &[],
         stretch: &[(MuscleID::Adductors, Stimulus::PRIMARY)],
         category: Category::Flexibility,
-        variants: &[],
-    },
-    BaseExercise {
-        name: "Cable Crossover",
-        aliases: &[],
-        force: Force::Push,
-        mechanic: Mechanic::Isolation,
-        laterality: Laterality::Bilateral,
-        assistance: Assistance::Unassisted,
-        equipment: &[Equipment::Cable],
-        muscles: &[
-            (MuscleID::Pecs, Stimulus::PRIMARY),
-            (MuscleID::FrontDelts, Stimulus::SECONDARY),
-        ],
-        stretch: &[(MuscleID::Pecs, Stimulus::SECONDARY)],
-        category: Category::Strength,
         variants: &[],
     },
     BaseExercise {
@@ -1049,7 +1053,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
     },
     BaseExercise {
         name: "Cable Triceps Pushdown",
-        aliases: &["Triceps Pushdown"],
+        aliases: &["Triceps Pushdown", "Tricep Pushdown"],
         force: Force::Push,
         mechanic: Mechanic::Isolation,
         laterality: Laterality::Bilateral,
@@ -1155,7 +1159,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         muscles: &[
             (MuscleID::Glutes, Stimulus::PRIMARY),
             (MuscleID::Quads, Stimulus::PRIMARY),
-            (MuscleID::Adductors, Stimulus::SECONDARY),
+            (MuscleID::Adductors, Stimulus::PRIMARY),
             (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
         stretch: &[
@@ -1390,7 +1394,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
     },
     BaseExercise {
         name: "Dumbbell Fly",
-        aliases: &[],
+        aliases: &["Dumbbell Flye"],
         force: Force::Push,
         mechanic: Mechanic::Isolation,
         laterality: Laterality::Bilateral,
@@ -1405,13 +1409,14 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         variants: &[
             ExerciseVariant {
                 name: "Cable Fly",
+                aliases: &["Cable Crossover", "Cable Flye"],
                 equipment: Some(&[Equipment::Cable]),
                 stretch: Some(&[(MuscleID::Pecs, Stimulus::SECONDARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Machine Fly",
-                aliases: &["Pec Deck"],
+                aliases: &["Pec Deck", "Machine Flye"],
                 equipment: Some(&[Equipment::Machine]),
                 stretch: Some(&[(MuscleID::Pecs, Stimulus::SECONDARY)]),
                 ..ExerciseVariant::default()
@@ -1695,6 +1700,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Lying Leg Raise",
+                aliases: &[],
                 equipment: Some(&[]),
                 ..ExerciseVariant::default()
             },
@@ -1796,7 +1802,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
     },
     BaseExercise {
         name: "Kneeling Hip Flexor Stretch",
-        aliases: &["Half-Kneeling Hip Flexor Stretch"],
+        aliases: &["Half-Kneeling Hip Flexor Stretch", "Hip Flexor Stretch"],
         force: Force::Static,
         mechanic: Mechanic::Isolation,
         laterality: Laterality::Unilateral,
@@ -1907,6 +1913,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         category: Category::Flexibility,
         variants: &[ExerciseVariant {
             name: "Lateral Leg Swing",
+            aliases: &["Side Leg Swing"],
             muscles: Some(&[(MuscleID::Abductors, Stimulus::SECONDARY)]),
             stretch: Some(&[
                 (MuscleID::Adductors, Stimulus::SECONDARY),
@@ -2221,7 +2228,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
     },
     BaseExercise {
         name: "Overhead Triceps Stretch",
-        aliases: &[],
+        aliases: &["Triceps Stretch"],
         force: Force::Static,
         mechanic: Mechanic::Compound,
         laterality: Laterality::Unilateral,
@@ -2258,16 +2265,27 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             ExerciseVariant {
                 name: "Barbell Standing Straddle Good Morning",
                 equipment: Some(&[Equipment::Barbell]),
+                muscles: Some(GOOD_MORNING_MUSCLES),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Barbell Straddle Romanian Deadlift",
+                aliases: &["Barbell Straddle RDL"],
                 equipment: Some(&[Equipment::Barbell]),
+                muscles: Some(HINGE_MUSCLES),
+                ..ExerciseVariant::default()
+            },
+            ExerciseVariant {
+                name: "Dumbbell Pancake Good Morning",
+                aliases: &["Weighted Pancake"],
+                equipment: Some(&[Equipment::Dumbbell]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Dumbbell Straddle Romanian Deadlift",
+                aliases: &["Dumbbell Straddle RDL"],
                 equipment: Some(&[Equipment::Dumbbell]),
+                muscles: Some(HINGE_MUSCLES),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
@@ -2737,6 +2755,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         variants: &[
             ExerciseVariant {
                 name: "Barbell Bulgarian Split Squat",
+                aliases: &["Barbell RFESS"],
                 equipment: Some(&[Equipment::Barbell]),
                 stretch: Some(&[
                     (MuscleID::HipFlexors, Stimulus::PRIMARY),
@@ -2760,6 +2779,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Dumbbell Bulgarian Split Squat",
+                aliases: &["Dumbbell RFESS"],
                 equipment: Some(&[Equipment::Dumbbell]),
                 stretch: Some(&[
                     (MuscleID::HipFlexors, Stimulus::PRIMARY),
@@ -2774,6 +2794,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Smith Machine Bulgarian Split Squat",
+                aliases: &["Smith Machine RFESS"],
                 equipment: Some(&[Equipment::Machine]),
                 stretch: Some(&[
                     (MuscleID::HipFlexors, Stimulus::PRIMARY),
@@ -2790,7 +2811,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
     },
     BaseExercise {
         name: "Squat",
-        aliases: &[],
+        aliases: &["Air Squat", "Bodyweight Squat"],
         force: Force::Push,
         mechanic: Mechanic::Compound,
         laterality: Laterality::Bilateral,
@@ -2800,7 +2821,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             (MuscleID::Quads, Stimulus::PRIMARY),
             (MuscleID::Glutes, Stimulus::PRIMARY),
             (MuscleID::Adductors, Stimulus::PRIMARY),
-            (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
             (MuscleID::Calves, Stimulus::SECONDARY),
         ],
         stretch: &[],
@@ -2839,8 +2860,15 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
             },
             ExerciseVariant {
                 name: "Barbell Squat",
-                aliases: &["Back Squat"],
+                aliases: &["Back Squat", "Barbell Back Squat"],
                 equipment: Some(&[Equipment::Barbell]),
+                muscles: Some(&[
+                    (MuscleID::Quads, Stimulus::PRIMARY),
+                    (MuscleID::Glutes, Stimulus::PRIMARY),
+                    (MuscleID::Adductors, Stimulus::PRIMARY),
+                    (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+                    (MuscleID::Calves, Stimulus::SECONDARY),
+                ]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
@@ -2877,7 +2905,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
     },
     BaseExercise {
         name: "Standing Hamstring Stretch",
-        aliases: &[],
+        aliases: &["Hamstring Stretch"],
         force: Force::Static,
         mechanic: Mechanic::Compound,
         laterality: Laterality::Unilateral,
@@ -2910,7 +2938,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
     },
     BaseExercise {
         name: "Standing Quad Stretch",
-        aliases: &[],
+        aliases: &["Quad Stretch"],
         force: Force::Static,
         mechanic: Mechanic::Isolation,
         laterality: Laterality::Unilateral,
@@ -2922,8 +2950,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         variants: &[],
     },
     BaseExercise {
-        name: "Standing Straddle Hold",
-        aliases: &[],
+        name: "Standing Straddle Stretch",
+        aliases: &["Standing Straddle Hold"],
         force: Force::Static,
         mechanic: Mechanic::Compound,
         laterality: Laterality::Bilateral,
@@ -2970,7 +2998,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
     BaseExercise {
         name: "Thread the Needle",
         aliases: &[],
-        force: Force::Static,
+        force: Force::Pull,
         mechanic: Mechanic::Compound,
         laterality: Laterality::Unilateral,
         assistance: Assistance::Unassisted,
@@ -3032,22 +3060,6 @@ const EXERCISE_VARIANTS: [BaseExercise; 120] = [
         ],
         stretch: &[],
         category: Category::Strength,
-        variants: &[],
-    },
-    BaseExercise {
-        name: "Weighted Pancake",
-        aliases: &[],
-        force: Force::Pull,
-        mechanic: Mechanic::Compound,
-        laterality: Laterality::Bilateral,
-        assistance: Assistance::Unassisted,
-        equipment: &[Equipment::Dumbbell],
-        muscles: &[(MuscleID::ErectorSpinae, Stimulus::SECONDARY)],
-        stretch: &[
-            (MuscleID::Adductors, Stimulus::PRIMARY),
-            (MuscleID::Hamstrings, Stimulus::PRIMARY),
-        ],
-        category: Category::Flexibility,
         variants: &[],
     },
     BaseExercise {
@@ -3173,6 +3185,24 @@ mod tests {
                         Assistance::Unassisted => !name.contains("Assisted"),
                     },
                     "{name}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_exercises_abbreviations() {
+        for exercise in EXERCISES.values() {
+            let name = exercise.name.as_ref().as_str();
+            for (words, abbreviation) in [
+                ("Romanian Deadlift", "RDL"),
+                ("Stiff-Legged Deadlift", "SLDL"),
+                ("Bulgarian Split Squat", "RFESS"),
+            ] {
+                let alias = name.replace(words, abbreviation);
+                assert!(
+                    !name.contains(words) || exercise.aliases.contains(&alias.as_str()),
+                    "alias \"{alias}\" of \"{name}\" missing"
                 );
             }
         }

@@ -83,13 +83,24 @@ impl OngoingTrainingSession {
 
     pub async fn set(mut self, ongoing: web_app::OngoingTrainingSession) {
         self.state.set(State::InProgress(ongoing.clone()));
-        if let Err(err) = WEB_APP_SERVICE
-            .read()
-            .set_ongoing_training_session(Some(ongoing))
-            .await
-        {
-            warn!("failed to persist ongoing training session: {err}");
+        persist(ongoing).await;
+    }
+
+    /// Starts a new ongoing state for `training_session_id` at `element_idx` if the state is
+    /// loaded and holds no session.
+    ///
+    /// The state is set before returning, so a page mounted right afterwards reads it. The
+    /// persistence outlives the calling component, which may be left right after the call.
+    pub fn start_if_none(mut self, training_session_id: u128, element_idx: usize) {
+        if !matches!(*self.state.peek(), State::None) {
+            return;
         }
+        let ongoing = web_app::OngoingTrainingSession {
+            element_idx,
+            ..web_app::OngoingTrainingSession::new(training_session_id)
+        };
+        self.state.set(State::InProgress(ongoing.clone()));
+        dioxus::dioxus_core::spawn_forever(persist(ongoing));
     }
 
     pub async fn clear(mut self) {
@@ -116,5 +127,60 @@ impl OngoingTrainingSession {
             State::InProgress(ongoing) => Some(ongoing.clone()),
             State::Loading | State::None => None,
         }
+    }
+}
+
+async fn persist(ongoing: web_app::OngoingTrainingSession) {
+    if let Err(err) = WEB_APP_SERVICE
+        .read()
+        .set_ongoing_training_session(Some(ongoing))
+        .await
+    {
+        warn!("failed to persist ongoing training session: {err}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    use crate::test_render::{provide_ongoing_training_session, render, text_of};
+
+    /// Renders the ongoing state resulting from `start_if_none(2, 3)`.
+    fn start_if_none_in(state: fn() -> State) -> String {
+        render(move || {
+            provide_ongoing_training_session(state());
+            let ongoing = consume_context::<OngoingTrainingSession>();
+            ongoing.start_if_none(2, 3);
+            let state = ongoing
+                .get()
+                .map(|o| format!("{} {}", o.training_session_id, o.element_idx));
+            rsx! {
+                p { "data-testid": "state", {state} }
+            }
+        })
+    }
+
+    #[test]
+    fn test_start_if_none_writes_the_state_at_the_element() {
+        let html = start_if_none_in(|| State::None);
+
+        assert_eq!(text_of(&html, "state"), "2 3");
+    }
+
+    #[test]
+    fn test_start_if_none_leaves_a_loading_state_unchanged() {
+        let html = start_if_none_in(|| State::Loading);
+
+        assert_eq!(text_of(&html, "state"), "");
+    }
+
+    #[test]
+    fn test_start_if_none_leaves_an_ongoing_session_unchanged() {
+        let html = start_if_none_in(|| State::InProgress(web_app::OngoingTrainingSession::new(1)));
+
+        assert_eq!(text_of(&html, "state"), "1 0");
     }
 }

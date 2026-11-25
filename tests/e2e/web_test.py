@@ -3876,7 +3876,7 @@ def test_schedule_dragged_slot_is_shown_at_pointer(page: Page) -> None:
     p.expect_slots(weekday, [routine])
 
 
-def test_schedule_completed_training_session_removes_entry(page: Page) -> None:
+def test_schedule_started_training_session_stays_in_progress(page: Page) -> None:
     routine = str(USER.routines[-1].name)
     weekday = TODAY.isoweekday()
 
@@ -3890,13 +3890,81 @@ def test_schedule_completed_training_session_removes_entry(page: Page) -> None:
     home_page.goto()
 
     home_page.expect_today_entries([routine])
+    home_page.expect_today_progress([])
 
     home_page.start_today_entry(0)
     TrainingSessionPage(page, 0).expect_page()
 
     home_page.goto()
 
-    home_page.expect_today_entries([])
+    home_page.expect_today_entries([routine])
+    home_page.expect_today_progress(["0 of 2 sets"])
+    home_page.expect_today_completed(0)
+
+
+def test_today_continue_training_session(page: Page) -> None:
+    routine = str(USER.routines[0].name)
+
+    login(page)
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.set_form(0, (5, None, None, None))
+    p.activate_set_action(0)
+    p.wait_until_idle()
+    p.end_training_session()
+    p.expect_end_training_session_hidden()
+
+    home_page = HomePage(page)
+    home_page.goto()
+
+    home_page.expect_today_entries([routine])
+    home_page.expect_today_progress(["1 of 10 sets"])
+
+    home_page.continue_today_entry(0)
+
+    p.expect_page()
+    p.expect_edit_mode()
+    p.expect_end_training_session_visible()
+    # The focused set without input shows no set action.
+    expect(p.set_action(1)).to_have_count(0)
+    expect(p.set_action(2)).to_be_visible()
+
+
+def test_today_view_training_session_while_another_is_ongoing(page: Page) -> None:
+    routine_1 = str(USER.routines[0].name)
+    routine_2 = str(USER.routines[-1].name)
+    weekday = TODAY.isoweekday()
+
+    login(page)
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine_1)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.set_form(0, (5, None, None, None))
+    p.activate_set_action(0)
+    p.wait_until_idle()
+    p.end_training_session()
+    p.expect_end_training_session_hidden()
+
+    schedule = SchedulePage(page)
+    schedule.goto()
+    schedule.add_slot(weekday, routine_2)
+
+    home_page = HomePage(page)
+    home_page.goto()
+    home_page.start_today_entry(0)
+    TrainingSessionPage(page, 1).expect_page()
+
+    home_page.goto()
+
+    home_page.expect_today_entries([routine_2, routine_1])
+    home_page.expect_today_actions(continue_count=1, view_count=1)
 
 
 def test_schedule_rotation(page: Page) -> None:
@@ -3932,7 +4000,9 @@ def test_schedule_rotation(page: Page) -> None:
 
     home_page.goto()
 
-    home_page.expect_today_entries([routine_1])
+    home_page.expect_today_entries([routine_2, routine_1])
+    home_page.expect_today_rotations([rotation, rotation])
+    home_page.expect_today_progress(["0 of 2 sets"])
 
 
 def test_schedule_rotation_rename_and_delete(page: Page) -> None:

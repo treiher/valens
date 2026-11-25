@@ -606,6 +606,11 @@ $value-field-padding: 0.4em;
     --bulma-tag-color-l: var(--bulma-scheme-main-l);
 }
 
+// Progress bar of the height of the other bars in the app, as Bulma's smallest is 0.75rem
+.progress.is-thin {
+    height: 6px;
+}
+
 .has-text-weak {
     color: var(--bulma-text-weak) !important;
 }

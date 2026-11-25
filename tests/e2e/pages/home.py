@@ -48,15 +48,31 @@ class HomePage(BasePage):
 
     def expect_today_entries(self, names: list[str]) -> None:
         if names:
-            expect(self.page.get_by_test_id("home-today-routine")).to_have_text(names)
+            expect(self.page.get_by_test_id("home-today-name")).to_have_text(names)
         else:
             expect(self.page.get_by_test_id("home-today-entry")).to_have_count(0)
 
     def expect_today_rotations(self, names: list[str]) -> None:
         expect(self.page.get_by_test_id("home-today-rotation")).to_have_text(names)
 
+    def expect_today_progress(self, labels: list[str]) -> None:
+        progress = self.page.get_by_test_id("home-today-progress")
+        expect(progress).to_have_count(len(labels))
+        for bar, label in zip(progress.all(), labels, strict=True):
+            expect(bar).to_have_attribute("aria-label", label)
+
+    def expect_today_completed(self, count: int) -> None:
+        expect(self.page.get_by_test_id("home-today-completed")).to_have_count(count)
+
     def start_today_entry(self, index: int) -> None:
         self.page.get_by_test_id("home-today-start").nth(index).click()
+
+    def continue_today_entry(self, index: int) -> None:
+        self.page.get_by_test_id("home-today-continue").nth(index).click()
+
+    def expect_today_actions(self, continue_count: int, view_count: int) -> None:
+        expect(self.page.get_by_test_id("home-today-continue")).to_have_count(continue_count)
+        expect(self.page.get_by_test_id("home-today-view")).to_have_count(view_count)
 
     def go_to_body_weight(self) -> None:
         self.wait_until_idle()

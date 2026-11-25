@@ -69,7 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Navigation bar: Page title that scrolls sideways if it is too long for the screen
-- Home page: Training load, counting the sets of exercises that only stretch as one, whatever their RPE
+- Home page:
+    - Training load, counting the sets of exercises that only stretch as one, whatever their RPE
+    - Training sessions of the current day with their progress next to the planned routines, a started routine staying with its progress and continued at its first open set
 - Training sessions page:
     - Charts on a tab of their own, next to the calendar and the list of sessions
     - List of sessions with their load and set volume, replacing the table of sessions

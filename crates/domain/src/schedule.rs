@@ -8,7 +8,10 @@ use chrono::{Datelike, NaiveDate};
 use derive_more::{Deref, Display};
 use uuid::Uuid;
 
-use crate::{Name, ReadError, RoutineID, SyncError, TrainingSession, UpdateError, ValidationError};
+use crate::{
+    Name, ReadError, RoutineID, SyncError, TrainingSession, TrainingSessionID, UpdateError,
+    ValidationError,
+};
 
 #[allow(async_fn_in_trait)]
 pub trait ScheduleService {
@@ -157,14 +160,96 @@ impl Schedule {
         Ok(())
     }
 
+    /// Returns the entries of `date`: a session entry for every training session on `date` with
+    /// at least one set, and a planned entry for every pending routine (see `pending_routines`).
+    ///
+    /// A session takes the first slot of the day resolving to its routine. The entries are
+    /// ordered in progress, then planned, then completed. Within each group, entries with a slot
+    /// come first in slot order, followed by the other sessions in the order of
+    /// `training_sessions`.
+    #[must_use]
+    pub fn day_entries(
+        &self,
+        date: NaiveDate,
+        training_sessions: &[TrainingSession],
+    ) -> Vec<DayEntry> {
+        let slots = self.resolved_slots(date, training_sessions);
+        let completed = Self::completed_routines(date, training_sessions);
+        let slot_of = |routine_id: RoutineID| {
+            slots
+                .iter()
+                .position(|(_, r)| *r == routine_id)
+                .map(|idx| (idx, slots[idx].0))
+        };
+        let sessions = training_sessions
+            .iter()
+            .filter(|t| t.date == date)
+            .filter_map(|t| {
+                let (recorded_sets, sets) = t.set_progress();
+                if sets == 0 {
+                    return None;
+                }
+                let slot = slot_of(t.routine_id);
+                let group = if t.all_sets_recorded() { 2 } else { 0 };
+                Some((
+                    group,
+                    slot.map(|(idx, _)| idx),
+                    DayEntry::Session {
+                        training_session_id: t.id,
+                        routine_id: t.routine_id,
+                        slot: slot.map(|(_, slot)| slot),
+                        recorded_sets,
+                        sets,
+                    },
+                ))
+            });
+        let planned = slots
+            .iter()
+            .enumerate()
+            .filter(|(_, (_, routine_id))| !completed.contains(routine_id))
+            .map(|(idx, &(slot, routine_id))| {
+                (1, Some(idx), DayEntry::Planned { slot, routine_id })
+            });
+        let mut entries = sessions.chain(planned).collect::<Vec<_>>();
+        entries.sort_by_key(|(group, slot_idx, _)| (*group, slot_idx.unwrap_or(usize::MAX)));
+        entries.into_iter().map(|(_, _, entry)| entry).collect()
+    }
+
     /// Returns the not yet completed planned routines of `date` in slot order.
     ///
     /// A planned routine is completed if a training session with its routine exists on `date`.
-    /// One training session satisfies all slots resolving to the same routine. Rotation slots
-    /// resolve against the training sessions before `date`; repeated slots of the same rotation
-    /// continue the sequence within the day.
+    /// One training session satisfies all slots resolving to the same routine.
     #[must_use]
     pub fn pending_routines(
+        &self,
+        date: NaiveDate,
+        training_sessions: &[TrainingSession],
+    ) -> Vec<(ScheduleSlot, RoutineID)> {
+        let completed = Self::completed_routines(date, training_sessions);
+        self.resolved_slots(date, training_sessions)
+            .into_iter()
+            .filter(|(_, routine_id)| !completed.contains(routine_id))
+            .collect()
+    }
+
+    /// Returns the routines of the training sessions on `date`.
+    fn completed_routines(
+        date: NaiveDate,
+        training_sessions: &[TrainingSession],
+    ) -> BTreeSet<RoutineID> {
+        training_sessions
+            .iter()
+            .filter(|t| t.date == date)
+            .map(|t| t.routine_id)
+            .collect()
+    }
+
+    /// Returns the slots of `date` with their resolved routines in slot order.
+    ///
+    /// Rotation slots resolve against the training sessions before `date`; repeated slots of the
+    /// same rotation continue the sequence within the day. Slots of empty or unknown rotations
+    /// are skipped.
+    fn resolved_slots(
         &self,
         date: NaiveDate,
         training_sessions: &[TrainingSession],
@@ -172,11 +257,6 @@ impl Schedule {
         let Some(slots) = self.entries.get(&Weekday::from(date.weekday())) else {
             return vec![];
         };
-        let completed = training_sessions
-            .iter()
-            .filter(|t| t.date == date)
-            .map(|t| t.routine_id)
-            .collect::<BTreeSet<_>>();
         let mut current: BTreeMap<RotationID, RoutineID> = BTreeMap::new();
         let mut result = vec![];
         for slot in slots {
@@ -198,9 +278,7 @@ impl Schedule {
                     routine_id
                 }
             };
-            if !completed.contains(&routine_id) {
-                result.push((*slot, routine_id));
-            }
+            result.push((*slot, routine_id));
         }
         result
     }
@@ -297,6 +375,24 @@ impl FromStr for RotationID {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Uuid::from_str(s).map(Self)
     }
+}
+
+/// An entry of a day, as returned by `Schedule::day_entries`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DayEntry {
+    /// A planned routine without a training session on the day.
+    Planned {
+        slot: ScheduleSlot,
+        routine_id: RoutineID,
+    },
+    /// A training session of the day, with the set progress of [`TrainingSession::set_progress`].
+    Session {
+        training_session_id: TrainingSessionID,
+        routine_id: RoutineID,
+        slot: Option<ScheduleSlot>,
+        recorded_sets: usize,
+        sets: usize,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -407,12 +503,16 @@ mod tests {
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
+    use crate::{RPE, Reps, Side, Tempo, Time, TrainingSessionElement, Weight};
+
     use super::*;
 
     const PUSH: u128 = 1;
     const PULL: u128 = 2;
     const LEGS: u128 = 3;
     const UPPER: u128 = 4;
+    const FULL: u128 = 5;
+    const CORE: u128 = 6;
 
     #[test]
     fn test_rotation_new_empty() {
@@ -798,6 +898,185 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_day_entries_planned_routine_without_session() {
+        assert_eq!(
+            ppl_schedule().day_entries(date(2020, 3, 2), &[]),
+            vec![DayEntry::Planned {
+                slot: ScheduleSlot::Rotation(1.into()),
+                routine_id: PUSH.into(),
+            }]
+        );
+    }
+
+    #[rstest]
+    #[case::in_progress(1)]
+    #[case::completed(2)]
+    fn test_day_entries_planned_routine_with_session(#[case] recorded_sets: usize) {
+        let training_sessions = [session_with_sets(
+            1,
+            PUSH,
+            date(2020, 3, 2),
+            recorded_sets,
+            2,
+        )];
+        assert_eq!(
+            ppl_schedule().day_entries(date(2020, 3, 2), &training_sessions),
+            vec![DayEntry::Session {
+                training_session_id: 1.into(),
+                routine_id: PUSH.into(),
+                slot: Some(ScheduleSlot::Rotation(1.into())),
+                recorded_sets,
+                sets: 2,
+            }]
+        );
+    }
+
+    #[test]
+    fn test_day_entries_sessions_without_slot() {
+        let training_sessions = [
+            session_with_sets(1, UPPER, date(2020, 3, 3), 0, 1),
+            session_with_sets(2, 0, date(2020, 3, 3), 0, 1),
+        ];
+        assert_eq!(
+            ppl_schedule().day_entries(date(2020, 3, 3), &training_sessions),
+            vec![
+                DayEntry::Session {
+                    training_session_id: 1.into(),
+                    routine_id: UPPER.into(),
+                    slot: None,
+                    recorded_sets: 0,
+                    sets: 1,
+                },
+                DayEntry::Session {
+                    training_session_id: 2.into(),
+                    routine_id: RoutineID::nil(),
+                    slot: None,
+                    recorded_sets: 0,
+                    sets: 1,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_day_entries_session_of_rotation_routine_takes_rotation_slot() {
+        let training_sessions = [
+            training_session(1, PUSH, date(2020, 3, 2)),
+            session_with_sets(2, PULL, date(2020, 3, 4), 0, 1),
+        ];
+        assert_eq!(
+            ppl_schedule().day_entries(date(2020, 3, 4), &training_sessions),
+            vec![DayEntry::Session {
+                training_session_id: 2.into(),
+                routine_id: PULL.into(),
+                slot: Some(ScheduleSlot::Rotation(1.into())),
+                recorded_sets: 0,
+                sets: 1,
+            }]
+        );
+    }
+
+    #[test]
+    fn test_day_entries_session_without_set_satisfies_slot() {
+        let training_sessions = [training_session(1, PUSH, date(2020, 3, 2))];
+        assert_eq!(
+            ppl_schedule().day_entries(date(2020, 3, 2), &training_sessions),
+            vec![]
+        );
+    }
+
+    #[test]
+    fn test_day_entries_ignores_sessions_of_other_days() {
+        let training_sessions = [session_with_sets(1, UPPER, date(2020, 3, 1), 0, 1)];
+        assert_eq!(
+            ppl_schedule().day_entries(date(2020, 3, 2), &training_sessions),
+            vec![DayEntry::Planned {
+                slot: ScheduleSlot::Rotation(1.into()),
+                routine_id: PUSH.into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn test_day_entries_order() {
+        let schedule = Schedule::new(
+            BTreeMap::new(),
+            BTreeMap::from([(
+                Weekday::Monday,
+                [PUSH, PULL, LEGS, UPPER, FULL, CORE]
+                    .map(|r| ScheduleSlot::Routine(r.into()))
+                    .to_vec(),
+            )]),
+        )
+        .unwrap();
+        let training_sessions = [
+            session_with_sets(1, 0, date(2020, 3, 2), 1, 1),
+            session_with_sets(2, 0, date(2020, 3, 2), 0, 1),
+            session_with_sets(3, CORE, date(2020, 3, 2), 1, 1),
+            session_with_sets(4, UPPER, date(2020, 3, 2), 0, 1),
+            session_with_sets(5, PUSH, date(2020, 3, 2), 1, 1),
+            session_with_sets(6, PULL, date(2020, 3, 2), 0, 1),
+        ];
+        let entries = schedule.day_entries(date(2020, 3, 2), &training_sessions);
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| match entry {
+                    DayEntry::Planned { routine_id, .. } => (None, *routine_id),
+                    DayEntry::Session {
+                        training_session_id,
+                        routine_id,
+                        ..
+                    } => (Some(*training_session_id), *routine_id),
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                (Some(6.into()), PULL.into()),
+                (Some(4.into()), UPPER.into()),
+                (Some(2.into()), RoutineID::nil()),
+                (None, LEGS.into()),
+                (None, FULL.into()),
+                (Some(5.into()), PUSH.into()),
+                (Some(3.into()), CORE.into()),
+                (Some(1.into()), RoutineID::nil()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_day_entries_planned_routines_keep_their_slot_order() {
+        let schedule = Schedule::new(
+            BTreeMap::from([(RotationID::from(1), ppl_rotation())]),
+            BTreeMap::from([(
+                Weekday::Monday,
+                vec![
+                    ScheduleSlot::Rotation(1.into()),
+                    ScheduleSlot::Routine(PULL.into()),
+                    ScheduleSlot::Routine(PUSH.into()),
+                ],
+            )]),
+        )
+        .unwrap();
+        assert_eq!(
+            schedule.day_entries(date(2020, 3, 2), &[]),
+            vec![
+                DayEntry::Planned {
+                    slot: ScheduleSlot::Rotation(1.into()),
+                    routine_id: PUSH.into(),
+                },
+                DayEntry::Planned {
+                    slot: ScheduleSlot::Routine(PULL.into()),
+                    routine_id: PULL.into(),
+                },
+                DayEntry::Planned {
+                    slot: ScheduleSlot::Routine(PUSH.into()),
+                    routine_id: PUSH.into(),
+                },
+            ]
+        );
+    }
+
     #[rstest]
     #[case(date(2020, 3, 2), Weekday::Monday)]
     #[case(date(2020, 3, 3), Weekday::Tuesday)]
@@ -873,6 +1152,35 @@ mod tests {
             elements: vec![],
             exercise_notes: BTreeMap::new(),
             exercise_measurements: BTreeMap::new(),
+        }
+    }
+
+    /// A training session with `sets` sets, the first `recorded_sets` of them with input
+    fn session_with_sets(
+        id: u128,
+        routine_id: u128,
+        date: NaiveDate,
+        recorded_sets: usize,
+        sets: usize,
+    ) -> TrainingSession {
+        TrainingSession {
+            elements: (0..sets)
+                .map(|i| TrainingSessionElement::Set {
+                    exercise_id: 1.into(),
+                    side: Side::Unset,
+                    reps: Reps::new(u32::from(i < recorded_sets)).unwrap(),
+                    time: Time::default(),
+                    weight: Weight::default(),
+                    rpe: RPE::default(),
+                    target_reps: Reps::default(),
+                    target_tempo: Tempo::default(),
+                    target_weight: Weight::default(),
+                    target_rpe: RPE::default(),
+                    automatic: false,
+                    countdown: false,
+                })
+                .collect(),
+            ..training_session(id, routine_id, date)
         }
     }
 

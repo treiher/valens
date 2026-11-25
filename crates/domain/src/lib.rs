@@ -35,7 +35,7 @@ pub use routine::{
     routines_sorted_by_last_use, validate_routine_name,
 };
 pub use schedule::{
-    Rotation, RotationError, RotationID, Schedule, ScheduleError, ScheduleRepository,
+    DayEntry, Rotation, RotationError, RotationID, Schedule, ScheduleError, ScheduleRepository,
     ScheduleService, ScheduleSlot, Weekday, WeekdayError,
 };
 pub use service::Service;

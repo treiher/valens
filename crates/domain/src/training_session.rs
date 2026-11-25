@@ -522,6 +522,32 @@ impl TrainingSession {
             .all(|element| !element.is_empty())
     }
 
+    /// Returns the number of set groups (see `groups`) whose sets all have input and the number
+    /// of set groups.
+    #[must_use]
+    pub fn set_progress(&self) -> (usize, usize) {
+        groups(&self.elements)
+            .into_iter()
+            .filter(|group| {
+                matches!(
+                    self.elements[group.start],
+                    TrainingSessionElement::Set { .. }
+                )
+            })
+            .fold((0, 0), |(recorded, total), group| {
+                let complete = self.elements[group].iter().all(|e| !e.is_empty());
+                (recorded + usize::from(complete), total + 1)
+            })
+    }
+
+    /// Returns the element index of the first set without input.
+    #[must_use]
+    pub fn first_unrecorded_set(&self) -> Option<usize> {
+        self.elements.iter().position(|element| {
+            matches!(element, TrainingSessionElement::Set { .. }) && element.is_empty()
+        })
+    }
+
     /// Retrieves the most recent distinct previous exercise notes for a given exercise.
     ///
     /// This method returns up to three distinct previous exercise notes for the specified
@@ -4836,6 +4862,37 @@ mod tests {
         );
         assert!(training_session(&[rest(60)]).all_sets_recorded());
         assert!(training_session(&[]).all_sets_recorded());
+    }
+
+    #[rstest]
+    #[case::rests_ignored(&[set(1, 5, 100.0, RPE::ZERO), rest(60), exercise(2, 2)], (1, 2))]
+    #[case::pair_as_one_group(
+        &[sided_set(1, Side::Left, 5, RPE::EIGHT), sided_set(1, Side::Right, 5, RPE::EIGHT)],
+        (1, 1)
+    )]
+    #[case::half_recorded_pair(
+        &[sided_set(1, Side::Left, 5, RPE::EIGHT), with_side(exercise(1, 1), Side::Right)],
+        (0, 1)
+    )]
+    #[case::without_sets(&[rest(60)], (0, 0))]
+    fn test_training_session_set_progress(
+        #[case] elements: &[TrainingSessionElement],
+        #[case] expected: (usize, usize),
+    ) {
+        assert_eq!(training_session(elements).set_progress(), expected);
+    }
+
+    #[rstest]
+    #[case::skips_recorded_sets_and_rests(
+        &[set(1, 5, 100.0, RPE::ZERO), rest(60), exercise(2, 2), exercise(3, 2)],
+        Some(2)
+    )]
+    #[case::all_recorded(&[set(1, 5, 100.0, RPE::ZERO), rest(60)], None)]
+    fn test_training_session_first_unrecorded_set(
+        #[case] elements: &[TrainingSessionElement],
+        #[case] expected: Option<usize>,
+    ) {
+        assert_eq!(training_session(elements).first_unrecorded_set(), expected);
     }
 
     #[rstest]
